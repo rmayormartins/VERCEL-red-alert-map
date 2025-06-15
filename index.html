@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red Alert Map - Real-time News Monitoring</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(220, 38, 38, 0.4);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.8em;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+            letter-spacing: 2px;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .controls {
+            background: linear-gradient(135deg, #1f2937, #374151);
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            border-bottom: 2px solid #dc2626;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input, select, button {
+            padding: 10px 15px;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            background: #374151;
+            color: #fff;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #dc2626;
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #map {
+            height: 65vh;
+            border-top: 3px solid #dc2626;
+            position: relative;
+        }
+        
+        .news-panel {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            height: 30vh;
+            overflow-y: auto;
+            padding: 20px;
+            border-top: 2px solid #374151;
+        }
+        
+        .news-item {
+            background: linear-gradient(135deg, #374151, #4b5563);
+            margin: 12px 0;
+            padding: 16px;
+            border-radius: 10px;
+            border-left: 4px solid #dc2626;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .news-item:hover {
+            background: linear-gradient(135deg, #4b5563, #6b7280);
+            transform: translateX(8px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        
+        .news-time {
+            color: #dc2626;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .news-location {
+            color: #fbbf24;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .news-source {
+            color: #10b981;
+            font-size: 0.8em;
+            font-style: italic;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px currentColor;
+        }
+        
+        .status-monitoring { background: #ef4444; color: #ef4444; }
+        .status-active { background: #10b981; color: #10b981; }
+        .status-error { background: #f59e0b; color: #f59e0b; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(31, 41, 55, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 1000;
+            backdrop-filter: blur(15px);
+            border: 1px solid #374151;
+            min-width: 200px;
+        }
+        
+        .legend h4 {
+            margin: 0 0 15px 0;
+            color: #dc2626;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 0.9em;
+        }
+        
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            margin-right: 12px;
+            box-shadow: 0 0 8px currentColor;
+        }
+        
+        .api-status {
+            background: #1f2937;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #10b981;
+        }
+        
+        .api-status.error {
+            border-left-color: #ef4444;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #4b5563;
+            border-radius: 50%;
+            border-top-color: #dc2626;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .alert-count {
+            background: #dc2626;
+            color: white;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        
+        .search-info {
+            background: #374151;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚨 RED ALERT MAP 🚨</h1>
+        <p>Real-time Monitoring of Global Security Alerts & Breaking News</p>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <span id="statusIndicator" class="status-indicator status-active"></span>
+            <span id="statusText">System Ready</span>
+            <span id="alertCount" class="alert-count" style="display: none;">0</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Keywords:</label>
+            <input type="text" id="keywords" placeholder="attack, explosion, alert, siren..." value="attack,explosion,alert,siren,missile,bomb">
+        </div>
+        
+        <div class="control-group">
+            <label>Region:</label>
+            <select id="region">
+                <option value="global">Global</option>
+                <option value="middle-east">Middle East</option>
+                <option value="europe">Europe</option>
+                <option value="americas">Americas</option>
+                <option value="asia">Asia</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <button id="startBtn" onclick="startMonitoring()">Start Monitoring</button>
+            <button id="stopBtn" onclick="stopMonitoring()" disabled>Stop</button>
+            <button onclick="clearAlerts()">Clear Alerts</button>
+        </div>
+    </div>
+    
+    <!-- API Configuration Section (will be hidden after setup) -->
+    <div id="apiConfig" class="api-status">
+        <strong>⚠️ API Configuration Required:</strong> Please add your API keys in the JavaScript section below.
+        <button onclick="testApis()" style="margin-left: 10px;">Test APIs</button>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="news-panel">
+        <h3>📰 Real-time News Feed <span class="loading" id="loadingIndicator" style="display: none;"></span></h3>
+        <div class="search-info" id="searchInfo">
+            Configure your API keys and click "Start Monitoring" to begin real-time news tracking
+        </div>
+        <div id="newsFeed">
+            <div class="news-item">
+                <div class="news-time">System Initialized</div>
+                <div><span class="news-location">Global</span> - Red Alert Map system ready for monitoring</div>
+                <div class="news-source">System</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="legend">
+        <h4>Alert Levels</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ef4444; color: #ef4444;"></div>
+            <span>Critical Alert</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #f97316; color: #f97316;"></div>
+            <span>High Alert</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #eab308; color: #eab308;"></div>
+            <span>Medium Alert</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #10b981; color: #10b981;"></div>
+            <span>Normal</span>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script>
+        // ========================================
+        // 🔑 API CONFIGURATION - ADD YOUR KEYS HERE
+        // ========================================
+        
+        const API_CONFIG = {
+            // 1. NewsAPI - Get free key at: https://newsapi.org/register
+            NEWSAPI_KEY: 'YOUR_NEWSAPI_KEY_HERE', // Replace with your actual key
+            
+            // 2. GNews API - Get free key at: https://gnews.io/register
+            GNEWS_KEY: 'YOUR_GNEWS_KEY_HERE', // Replace with your actual key
+            
+            // 3. Twitter Bearer Token (optional) - Get at: https://developer.twitter.com
+            TWITTER_BEARER: 'YOUR_TWITTER_BEARER_TOKEN_HERE', // Replace with your actual token
+            
+            // 4. Alternative News APIs (choose one or more)
+            CURRENTS_API_KEY: 'YOUR_CURRENTS_API_KEY_HERE', // Get at: https://currentsapi.services/
+            MEDIASTACK_KEY: 'YOUR_MEDIASTACK_KEY_HERE' // Get at: https://mediastack.com/
+        };
+        
+        // ========================================
+        // 🗺️ MAP AND DATA CONFIGURATION
+        // ========================================
+        
+        let map;
+        let markers = [];
+        let monitoringInterval;
+        let isMonitoring = false;
+        let alertCounter = 0;
+        let lastSearchTime = 0;
+        
+        // Important global locations to monitor
+        const LOCATIONS = {
+            'jerusalem': { lat: 31.7683, lng: 35.2137, name: 'Jerusalem', country: 'Israel' },
+            'tel aviv': { lat: 32.0853, lng: 34.7818, name: 'Tel Aviv', country: 'Israel' },
+            'haifa': { lat: 32.7940, lng: 34.9896, name: 'Haifa', country: 'Israel' },
+            'gaza': { lat: 31.5017, lng: 34.4668, name: 'Gaza', country: 'Palestine' },
+            'beirut': { lat: 33.8938, lng: 35.5018, name: 'Beirut', country: 'Lebanon' },
+            'damascus': { lat: 33.5138, lng: 36.2765, name: 'Damascus', country: 'Syria' },
+            'tehran': { lat: 35.6892, lng: 51.3890, name: 'Tehran', country: 'Iran' },
+            'baghdad': { lat: 33.3152, lng: 44.3661, name: 'Baghdad', country: 'Iraq' },
+            'kabul': { lat: 34.5553, lng: 69.2075, name: 'Kabul', country: 'Afghanistan' },
+            'kyiv': { lat: 50.4501, lng: 30.5234, name: 'Kyiv', country: 'Ukraine' },
+            'moscow': { lat: 55.7558, lng: 37.6176, name: 'Moscow', country: 'Russia' },
+            'cairo': { lat: 30.0444, lng: 31.2357, name: 'Cairo', country: 'Egypt' },
+            'riyadh': { lat: 24.7136, lng: 46.6753, name: 'Riyadh', country: 'Saudi Arabia' },
+            'ankara': { lat: 39.9334, lng: 32.8597, name: 'Ankara', country: 'Turkey' },
+            'london': { lat: 51.5074, lng: -0.1278, name: 'London', country: 'UK' },
+            'paris': { lat: 48.8566, lng: 2.3522, name: 'Paris', country: 'France' },
+            'berlin': { lat: 52.5200, lng: 13.4050, name: 'Berlin', country: 'Germany' },
+            'new york': { lat: 40.7128, lng: -74.0060, name: 'New York', country: 'USA' },
+            'washington': { lat: 38.9072, lng: -77.0369, name: 'Washington DC', country: 'USA' }
+        };
+        
+        // ========================================
+        // 🗺️ MAP INITIALIZATION
+        // ========================================
+        
+        function initMap() {
+            // Initialize map centered on Middle East
+            map = L.map('map').setView([32.0, 35.0], 4);
+            
+            // Dark themed map
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap contributors, © CARTO',
+                maxZoom: 18
+            }).addTo(map);
+            
+            // Add markers for all locations
+            Object.entries(LOCATIONS).forEach(([key, location]) => {
+                const marker = L.circleMarker([location.lat, location.lng], {
+                    radius: 8,
+                    fillColor: '#10b981',
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+                
+                marker.bindPopup(`
+                    <div style="color: #000; min-width: 200px;">
+                        <strong>${location.name}</strong><br>
+                        <em>${location.country}</em><br>
+                        Status: <span style="color: #10b981;">Normal</span><br>
+                        Last updated: ${new Date().toLocaleTimeString()}
+                    </div>
+                `);
+                
+                markers.push({ 
+                    marker, 
+                    location: key, 
+                    status: 'normal',
+                    lastAlert: null
+                });
+            });
+            
+            // Add click handler for manual alerts
+            map.on('click', function(e) {
+                if (isMonitoring) {
+                    addManualAlert(e.latlng);
+                }
+            });
+        }
+        
+        // ========================================
+        // 📡 NEWS API FUNCTIONS
+        // ========================================
+        
+        async function searchNewsAPI() {
+            if (!API_CONFIG.NEWSAPI_KEY || API_CONFIG.NEWSAPI_KEY === 'YOUR_NEWSAPI_KEY_HERE') {
+                return [];
+            }
+            
+            const keywords = document.getElementById('keywords').value;
+            const url = `https://newsapi.org/v2/everything`;
+            
+            try {
+                const response = await fetch(`${url}?q=${encodeURIComponent(keywords)}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${API_CONFIG.NEWSAPI_KEY}`);
+                
+                if (!response.ok) {
+                    throw new Error(`NewsAPI error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return processNewsArticles(data.articles || [], 'NewsAPI');
+                
+            } catch (error) {
+                console.error('NewsAPI Error:', error);
+                updateSearchInfo(`NewsAPI Error: ${error.message}`);
+                return [];
+            }
+        }
+        
+        async function searchGNews() {
+            if (!API_CONFIG.GNEWS_KEY || API_CONFIG.GNEWS_KEY === 'YOUR_GNEWS_KEY_HERE') {
+                return [];
+            }
+            
+            const keywords = document.getElementById('keywords').value;
+            const url = `https://gnews.io/api/v4/search`;
+            
+            try {
+                const response = await fetch(`${url}?q=${encodeURIComponent(keywords)}&lang=en&max=20&apikey=${API_CONFIG.GNEWS_KEY}`);
+                
+                if (!response.ok) {
+                    throw new Error(`GNews error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return processNewsArticles(data.articles || [], 'GNews');
+                
+            } catch (error) {
+                console.error('GNews Error:', error);
+                updateSearchInfo(`GNews Error: ${error.message}`);
+                return [];
+            }
+        }
+        
+        async function searchCurrentsAPI() {
+            if (!API_CONFIG.CURRENTS_API_KEY || API_CONFIG.CURRENTS_API_KEY === 'YOUR_CURRENTS_API_KEY_HERE') {
+                return [];
+            }
+            
+            const keywords = document.getElementById('keywords').value;
+            const url = `https://api.currentsapi.services/v1/search`;
+            
+            try {
+                const response = await fetch(`${url}?keywords=${encodeURIComponent(keywords)}&language=en&apiKey=${API_CONFIG.CURRENTS_API_KEY}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Currents API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return processNewsArticles(data.news || [], 'CurrentsAPI');
+                
+            } catch (error) {
+                console.error('Currents API Error:', error);
+                return [];
+            }
+        }
+        
+        // ========================================
+        // 🔍 NEWS PROCESSING FUNCTIONS
+        // ========================================
+        
+        function processNewsArticles(articles, source) {
+            const alerts = [];
+            
+            articles.forEach(article => {
+                const text = `${article.title} ${article.description || ''}`;
+                const location = extractLocation(text);
+                
+                if (location) {
+                    const severity = calculateSeverity(text);
+                    alerts.push({
+                        source: source,
+                        title: article.title,
+                        description: article.description,
+                        location: location,
+                        severity: severity,
+                        timestamp: new Date(),
+                        url: article.url,
+                        publishedAt: article.publishedAt
+                    });
+                }
+            });
+            
+            return alerts;
+        }
+        
+        function extractLocation(text) {
+            const textLower = text.toLowerCase();
+            
+            // Check for known locations
+            for (const [key, location] of Object.entries(LOCATIONS)) {
+                if (textLower.includes(key) || textLower.includes(location.name.toLowerCase())) {
+                    return key;
+                }
+            }
+            
+            // Check for country names
+            const countries = ['israel', 'palestine', 'lebanon', 'syria', 'iran', 'iraq', 'ukraine', 'russia'];
+            for (const country of countries) {
+                if (textLower.includes(country)) {
+                    // Return the capital city for that country
+                    const capitals = {
+                        'israel': 'jerusalem',
+                        'palestine': 'gaza',
+                        'lebanon': 'beirut',
+                        'syria': 'damascus',
+                        'iran': 'tehran',
+                        'iraq': 'baghdad',
+                        'ukraine': 'kyiv',
+                        'russia': 'moscow'
+                    };
+                    return capitals[country] || null;
+                }
+            }
+            
+            return null;
+        }
+        
+        function calculateSeverity(text) {
+            const textLower = text.toLowerCase();
+            
+            const criticalKeywords = ['explosion', 'bomb', 'missile', 'attack', 'killed', 'dead', 'casualties'];
+            const highKeywords = ['siren', 'alert', 'warning', 'evacuate', 'emergency'];
+            const mediumKeywords = ['tension', 'threat', 'concern', 'incident'];
+            
+            if (criticalKeywords.some(keyword => textLower.includes(keyword))) {
+                return 'critical';
+            } else if (highKeywords.some(keyword => textLower.includes(keyword))) {
+                return 'high';
+            } else if (mediumKeywords.some(keyword => textLower.includes(keyword))) {
+                return 'medium';
+            }
+            
+            return 'low';
+        }
+        
+        // ========================================
+        // 🚨 MONITORING FUNCTIONS
+        // ========================================
+        
+        async function startMonitoring() {
+            if (isMonitoring) return;
+            
+            // Check if APIs are configured
+            if (!areApisConfigured()) {
+                alert('Please configure your API keys first! Check the JavaScript section for instructions.');
+                return;
+            }
+            
+            isMonitoring = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('statusIndicator').className = 'status-indicator status-monitoring';
+            document.getElementById('statusText').textContent = 'Monitoring Active';
+            document.getElementById('loadingIndicator').style.display = 'inline-block';
+            
+            // Hide API config message
+            document.getElementById('apiConfig').style.display = 'none';
+            
+            addSystemMessage('🚨 Real-time monitoring started - scanning global news sources...');
+            updateSearchInfo('Monitoring active - checking multiple news sources every 2 minutes');
+            
+            // Start monitoring loop
+            monitoringInterval = setInterval(async () => {
+                await performNewsSearch();
+            }, 120000); // Check every 2 minutes
+            
+            // Perform initial search
+            await performNewsSearch();
+        }
+        
+        async function stopMonitoring() {
+            if (!isMonitoring) return;
+            
+            isMonitoring = false;
+            clearInterval(monitoringInterval);
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('statusIndicator').className = 'status-indicator status-active';
+            document.getElementById('statusText').textContent = 'System Ready';
+            document.getElementById('loadingIndicator').style.display = 'none';
+            
+            addSystemMessage('📴 Monitoring stopped');
+            updateSearchInfo('Monitoring paused - click "Start Monitoring" to resume');
+        }
+        
+        async function performNewsSearch() {
+            const startTime = Date.now();
+            lastSearchTime = startTime;
+            
+            try {
+                document.getElementById('loadingIndicator').style.display = 'inline-block';
+                
+                // Search multiple news sources
+                const searchPromises = [
+                    searchNewsAPI(),
+                    searchGNews(),
+                    searchCurrentsAPI()
+                ];
+                
+                const results = await Promise.allSettled(searchPromises);
+                let allAlerts = [];
+                
+                results.forEach((result, index) => {
+                    if (result.status === 'fulfilled') {
+                        allAlerts = allAlerts.concat(result.value);
+                    } else {
+                        console.error(`Search ${index} failed:`, result.reason);
+                    }
+                });
+                
+                // Remove duplicates and sort by severity
+                allAlerts = removeDuplicateAlerts(allAlerts);
+                allAlerts.sort((a, b) => getSeverityWeight(b.severity) - getSeverityWeight(a.severity));
+                
+                // Process new alerts
+                allAlerts.forEach(alert => {
+                    addNewsAlert(alert);
+                    updateMapMarker(alert);
+                });
+                
+                const searchTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                updateSearchInfo(`Last scan: ${new Date().toLocaleTimeString()} (${allAlerts.length} alerts found in ${searchTime}s)`);
+                
+            } catch (error) {
+                console.error('Search error:', error);
+                updateSearchInfo(`Search error: ${error.message}`);
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
+        }
+        
+        function removeDuplicateAlerts(alerts) {
+            const seen = new Set();
+            return alerts.filter(alert => {
+                const key = `${alert.location}-${alert.title.substring(0, 50)}`;
+                if (seen.has(key)) {
+                    return false;
+                }
+                seen.add(key);
+                return true;
+            });
+        }
+        
+        function getSeverityWeight(severity) {
+            const weights = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1 };
+            return weights[severity] || 0;
+        }
+        
+        // ========================================
+        // 🗺️ MAP UPDATE FUNCTIONS
+        // ========================================
+        
+        function updateMapMarker(alert) {
+            const markerData = markers.find(m => m.location === alert.location);
+            if (!markerData) return;
+            
+            const colors = {
+                'critical': '#ef4444',
+                'high': '#f97316',
+                'medium': '#eab308',
+                'low': '#10b981'
+            };
+            
+            const radius = {
+                'critical': 15,
+                'high': 12,
+                'medium': 10,
+                'low': 8
+            };
+            
+            markerData.marker.setStyle({
+                fillColor: colors[alert.severity],
+                radius: radius[alert.severity],
+                weight: alert.severity === 'critical' ? 3 : 2
+            });
+            
+            markerData.status = alert.severity;
+            markerData.lastAlert = alert;
+            
+            const location = LOCATIONS[alert.location];
+            markerData.marker.setPopupContent(`
+                <div style="color: #000; min-width: 250px;">
+                    <strong>${location.name}</strong> (${location.country})<br>
+                    <span style="color: ${colors[alert.severity]}; font-weight: bold; text-transform: uppercase;">
+                        ${alert.severity} ALERT
+                    </span><br><br>
+                    <strong>Latest:</strong> ${alert.title}<br>
+                    <strong>Source:</strong> ${alert.source}<br>
+                    <strong>Time:</strong> ${alert.timestamp.toLocaleTimeString()}<br>
+                    ${alert.url ? `<a href="${alert.url}" target="_blank" style="color: #dc2626;">Read More</a>` : ''}
+                </div>
+            `);
+            
+            // Animate marker for high/critical alerts
+            if (alert.severity === 'critical' || alert.severity === 'high') {
+                animateMarker(markerData.marker);
+            }
+        }
+        
+        function animateMarker(marker) {
+            let pulseCount = 0;
+            const maxPulses = 6;
+            
+            const pulse = setInterval(() => {
+                const opacity = marker.options.fillOpacity === 0.8 ? 0.3 : 0.8;
+                marker.setStyle({ fillOpacity: opacity });
+                
+                pulseCount++;
+                if (pulseCount >= maxPulses) {
+                    clearInterval(pulse);
+                    marker.setStyle({ fillOpacity: 0.8 });
+                }
+            }, 300);
+        }
+        
+        // ========================================
+        // 📰 NEWS FEED FUNCTIONS
+        // ========================================
+        
+        function addNewsAlert(alert) {
+            const feed = document.getElementById('newsFeed');
+            const newsItem = document.createElement('div');
+            newsItem.className = 'news-item';
+            
+            const severityColors = {
+                'critical': '#ef4444',
+                'high': '#f97316',
+                'medium': '#eab308',
+                'low': '#10b981'
+            };
+            
+            const time = alert.timestamp.toLocaleTimeString();
+            const location = LOCATIONS[alert.location];
+            
+            newsItem.innerHTML = `
+                <div class="news-time">${time}</div>
+                <div>
+                    <span class="news-location" style="color: ${severityColors[alert.severity]}">
+                        ${location.name}
+                    </span> - ${alert.title}
+                </div>
+                <div class="news-source">${alert.source} | ${alert.severity.toUpperCase()}</div>
+            `;
+            
+            // Add click handler to show full article
+            if (alert.url) {
+                newsItem.style.cursor = 'pointer';
+                newsItem.onclick = () => window.open(alert.url, '_blank');
+            }
+            
+            feed.insertBefore(newsItem, feed.children[0]);
+            
+            // Keep only last 50 items
+            while (feed.children.length > 50) {
+                feed.removeChild(feed.lastChild);
+            }
+            
+            // Update alert counter
+            alertCounter++;
+            updateAlertCounter();
+            
+            // Scroll to top
+            feed.scrollTop = 0;
+        }
+        
+        function addSystemMessage(message) {
+            const feed = document.getElementById('newsFeed');
+            const newsItem = document.createElement('div');
+            newsItem.className = 'news-item';
+            
+            newsItem.innerHTML = `
+                <div class="news-time">${new Date().toLocaleTimeString()}</div>
+                <div><span class="news-location">System</span> - ${message}</div>
+                <div class="news-source">System Alert</div>
+            `;
+            
+            feed.insertBefore(newsItem, feed.children[0]);
+        }
+        
+        function updateSearchInfo(info) {
+            document.getElementById('searchInfo').textContent = info;
+        }
+        
+        function updateAlertCounter() {
+            const counter = document.getElementById('alertCount');
+            counter.textContent = alertCounter;
+            counter.style.display = alertCounter > 0 ? 'inline' : 'none';
+        }
+        
+        // ========================================
+        // 🛠️ UTILITY FUNCTIONS
+        // ========================================
+        
+        function clearAlerts() {
+            // Reset all markers
+            markers.forEach(markerData => {
+                markerData.marker.setStyle({
+                    fillColor: '#10b981',
+                    radius: 8,
+                    weight: 2
+                });
+                markerData.status = 'normal';
+                markerData.lastAlert = null;
+                
+                const location = LOCATIONS[markerData.location];
+                markerData.marker.setPopupContent(`
+                    <div style="color: #000; min-width: 200px;">
+                        <strong>${location.name}</strong><br>
+                        <em>${location.country}</em><br>
+                        Status: <span style="color: #10b981;">Normal</span><br>
+                        Last updated: ${new Date().toLocaleTimeString()}
+                    </div>
+                `);
+            });
+            
+            // Clear news feed
+            document.getElementById('newsFeed').innerHTML = `
+                <div class="news-item">
+                    <div class="news-time">${new Date().toLocaleTimeString()}</div>
+                    <div><span class="news-location">System</span> - All alerts cleared</div>
+                    <div class="news-source">System</div>
+                </div>
+            `;
+            
+            // Reset counter
+            alertCounter = 0;
+            updateAlertCounter();
+        }
+        
+        function areApisConfigured() {
+            return (API_CONFIG.NEWSAPI_KEY && API_CONFIG.NEWSAPI_KEY !== 'YOUR_NEWSAPI_KEY_HERE') ||
+                   (API_CONFIG.GNEWS_KEY && API_CONFIG.GNEWS_KEY !== 'YOUR_GNEWS_KEY_HERE') ||
+                   (API_CONFIG.CURRENTS_API_KEY && API_CONFIG.CURRENTS_API_KEY !== 'YOUR_CURRENTS_API_KEY_HERE');
+        }
+        
+        async function testApis() {
+            const results = [];
+            
+            // Test NewsAPI
+            if (API_CONFIG.NEWSAPI_KEY && API_CONFIG.NEWSAPI_KEY !== 'YOUR_NEWSAPI_KEY_HERE') {
+                try {
+                    const response = await fetch(`https://newsapi.org/v2/top-headlines?country=us&pageSize=1&apiKey=${API_CONFIG.NEWSAPI_KEY}`);
+                    results.push(`NewsAPI: ${response.ok ? '✅ Working' : '❌ Error'}`);
+                } catch (e) {
+                    results.push(`NewsAPI: ❌ ${e.message}`);
+                }
+            } else {
+                results.push('NewsAPI: ⚠️ Not configured');
+            }
+            
+            // Test GNews
+            if (API_CONFIG.GNEWS_KEY && API_CONFIG.GNEWS_KEY !== 'YOUR_GNEWS_KEY_HERE') {
+                try {
+                    const response = await fetch(`https://gnews.io/api/v4/top-headlines?lang=en&max=1&apikey=${API_CONFIG.GNEWS_KEY}`);
+                    results.push(`GNews: ${response.ok ? '✅ Working' : '❌ Error'}`);
+                } catch (e) {
+                    results.push(`GNews: ❌ ${e.message}`);
+                }
+            } else {
+                results.push('GNews: ⚠️ Not configured');
+            }
+            
+            alert('API Test Results:\n\n' + results.join('\n'));
+        }
+        
+        function addManualAlert(latlng) {
+            // Find closest location
+            let closestLocation = null;
+            let minDistance = Infinity;
+            
+            Object.entries(LOCATIONS).forEach(([key, location]) => {
+                const distance = Math.sqrt(
+                    Math.pow(latlng.lat - location.lat, 2) + 
+                    Math.pow(latlng.lng - location.lng, 2)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestLocation = key;
+                }
+            });
+            
+            if (closestLocation && minDistance < 5) { // Within ~5 degrees
+                const alert = {
+                    source: 'Manual',
+                    title: 'Manual alert added by user',
+                    location: closestLocation,
+                    severity: 'medium',
+                    timestamp: new Date(),
+                    url: null
+                };
+                
+                addNewsAlert(alert);
+                updateMapMarker(alert);
+            }
+        }
+        
+        // ========================================
+        // 🚀 INITIALIZATION
+        // ========================================
+        
+        window.onload = function() {
+            initMap();
+            
+            // Check if APIs are configured
+            if (areApisConfigured()) {
+                document.getElementById('apiConfig').style.display = 'none';
+                updateSearchInfo('APIs configured - ready to start monitoring');
+            } else {
+                updateSearchInfo('Please configure your API keys to enable monitoring');
+            }
+        };
+        
+        // Auto-cleanup on page unload
+        window.onbeforeunload = function() {
+            if (isMonitoring) {
+                stopMonitoring();
+            }
+        };
+    </script>
+</body>
+</html>
